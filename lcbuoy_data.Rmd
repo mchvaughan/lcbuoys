@@ -1,0 +1,218 @@
+---
+title: "Lake Champlain Basin Program buoy data"
+author: "Matthew Vaughan"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    code_folding: hide
+---
+
+```{r setup, include = FALSE}
+# load packages
+library(RCurl)
+library(tidyverse)
+library(lubridate)
+library(viridis)
+library(plotly)
+library(weathermetrics)
+
+# load ftp info
+valcour_url <- "ftp://02d0c8c.netsolhost.com/valcour_pushed_data.csv"
+userpwd <- "lcbp_data:Data123"
+
+# pull in all valcour data
+valcour <- getURL(valcour_url, 
+              userpwd = userpwd) %>%
+ read_csv(skip = 1) %>%
+ rename(timestamp = `Time America/New_York UTC-04:00`) %>%
+ drop_na() %>%
+ mutate(timestamp = mdy_hms(timestamp)) %>%
+ mutate_if(is.character, as.numeric) %>% # convert all those characters to numeric
+ filter(timestamp > ymd_hms("2021-06-24 00:00:00")) %>%
+ rename(temp_01m = Temp00,
+        temp_02m = Temp01,
+        temp_03m = Temp02,
+        temp_04m = Temp03,
+        temp_05m = Temp04,
+        temp_06m = Temp05,
+        temp_07m = Temp06,
+        temp_08m = Temp07,
+        temp_09m = Temp08,
+        temp_10m = Temp09,
+        temp_11m = Temp10,
+        temp_12m = Temp11,
+        temp_13m = Temp12,
+        temp_14m = Temp13,
+        temp_15m = Temp14,
+        temp_16m = Temp15,
+        temp_17m = Temp16,
+        temp_18m = Temp17,
+        temp_19m = Temp18,
+        temp_20m = Temp19,
+        temp_21m = Temp20,
+        temp_22m = Temp21,
+        temp_23m = Temp22,
+        temp_24m = Temp23,
+        temp_25m = Temp24,
+        temp_26m = Temp25,
+        temp_27m = Temp26,
+        temp_28m = Temp27,
+        temp_29m = Temp28,
+        temp_31m = Temp29,
+        temp_33m = Temp30,
+        temp_35m = Temp31,
+        temp_37m = Temp32,
+        temp_39m = Temp33,
+        temp_41m = Temp34,
+        temp_43m = Temp35,
+        temp_45m = Temp36,
+        temp_47m = Temp37,
+        temp_49m = Temp38,
+        rel_baro_pressure_inHg = `Rel. Barometric Pressure`,
+        air_temp_degC = `Air Temperature`,
+        wind_speed_mps = `Wind Speed`,
+        wind_direction_deg = `Wind Direction`) %>%
+  mutate(rel_baro_pressure_kPa = rel_baro_pressure_inHg * 3.38639) %>% # convert to kPa 
+  select(-rel_baro_pressure_inHg) # remove the inHg version
+
+valcour_watertemp <- valcour %>%
+ select(c(timestamp, starts_with("temp"))) %>% # select only timestamp and temperature columns
+ pivot_longer(!timestamp,
+              names_to = "var",
+              values_to = "degC") %>%
+ mutate(depth_m = var %>% # find the water depth
+                  substr(6, 7) %>% # pull the number out of the name
+                  as.numeric()) # convert to numeric
+
+# organize valcour weather data
+valcour_weather <- valcour %>%
+ select(-starts_with("temp")) %>% # select all non-temperature columns
+ pivot_longer(-timestamp,
+              names_to = "var",
+              values_to = "value")
+
+# find latest valcour conditions
+latest_valcour <- valcour %>%
+  slice_tail()
+
+# find time of latest measurement
+latest_timestamp <- latest_valcour %>%
+  pull("timestamp")
+
+latest_wind_speed_mps <- latest_valcour %>%
+  pull("wind_speed_mps")
+
+latest_baro_pressure_kPa <- latest_valcour %>%
+  pull("rel_baro_pressure_kPa")
+
+latest_wind_dir_deg <- latest_valcour %>%
+  pull("wind_direction_deg")
+
+latest_airtemp_degC <- latest_valcour %>%
+  pull("air_temp_degC")
+
+
+```
+
+# Welcome
+This site shows data from a monitoring buoy located in the Main Lake segment, near Valcour Island. Two additional buoys will be deployed and added to this site later in 2021. 
+
+All data plots are interactive. Hover over plots to see details on each measurement, click and drag to zoom in on a section. Additional features can be found at the top right of each plot.
+
+**This site is under development. All data is provisional and for educational purposes only.**
+
+# Valcour buoy water temperature data
+## Latest water temperature profile, recorded `r latest_timestamp`
+``` {r valcour_current_water_temp, out.width = "100%"}
+latest_valcour_watertemp_plot <- valcour_watertemp %>%
+  filter(timestamp == latest_timestamp) %>%
+  ggplot() +
+  geom_line(aes(x = degC,
+                y = depth_m),
+            size = 1.5) +
+  scale_y_reverse() +
+  labs(x = "Temperature (deg C)",
+       y = "Depth below water surface (m)")
+
+ggplotly(latest_valcour_watertemp_plot)
+```
+
+## Water temperature profiles over the past week
+```{r past_week, out.width = "100%"}
+# enter number of days to look back:
+day_window <- 7
+
+timestamp_labeller <- function(x){
+  as.POSIXct(x, origin = '1970-01-01')
+}
+
+last_week_valcour_watertemp_plot <- valcour_watertemp %>%
+  filter(timestamp > (latest_timestamp - duration(day_window, units = "days"))) %>%
+  ggplot() +
+  geom_line(aes(x = degC,
+                y = depth_m,
+                color = timestamp,
+                group = timestamp),
+            alpha = 0.4,
+            size = 1) +
+  scale_y_reverse() +
+  scale_color_viridis(option = "magma",
+                      direction = -1,
+                      labels = timestamp_labeller) +
+  labs(x = "Temperature (deg C)",
+       y = "Depth below water surface (m)")
+
+ggplotly(last_week_valcour_watertemp_plot)
+```
+
+## Water temperature data from the past 30 days:
+```{r valcour_watertemp, out.width = "100%"}
+valcour_watertemp_plot <- valcour_watertemp %>%
+  ggplot() +
+  geom_tile(aes(x = timestamp,
+                y = depth_m,
+                fill = degC)) +
+  scale_fill_viridis("Temperature\n(deg C)",
+                     option = "plasma") +
+  scale_y_reverse() +
+  labs(x = "",
+       y = "Depth below water surface (m)")
+
+ggplotly(valcour_watertemp_plot)
+```
+# Valcour buoy weather data
+## Latest weather conditions, recorded `r latest_timestamp`
+
+**Air temperature:** `r latest_airtemp_degC` degrees Celsius (`r round(celsius.to.fahrenheit(latest_airtemp_degC), 1)` degrees Fahrenheit)
+
+**Wind speed:** `r round(latest_wind_speed_mps, 1)` meters per second (`r round(convert_wind_speed(latest_wind_speed_mps, old_metric = "mps", new_metric = "mph"), 1)` miles per hour)
+
+**Wind direction:** `r latest_wind_dir_deg` degrees from North
+
+**Relative barometric pressure:** `r round(latest_baro_pressure_kPa, 1)` kilopascals (`r round(latest_baro_pressure_kPa*7.50062, 1)` millimeters of mercury; `r round(latest_baro_pressure_kPa*0.2953, 1)` inches of mercury)
+
+## Weather conditions from the past 30 days:
+```{r valcour_weather, out.width = "100%"}
+valcour_weather_plot <- valcour_weather %>%
+  filter(!(timestamp == ymd_hms("2021-07-06 03:30:00") &
+           var == "wind_speed_mps")) %>% # remove erroneous value
+  ggplot() +
+  geom_line(aes(x = timestamp,
+                y = value,
+                color = var)) +
+  facet_wrap(var ~ .,
+             scales = "free_y",
+             ncol = 1,
+             strip.position = "top") +
+  scale_color_viridis(discrete = TRUE) +
+  theme(legend.position = "none") +
+  labs(x = "", y = "")
+
+ggplotly(valcour_weather_plot)
+
+```
+
+# More information
+Lake Champlain monitoring buoys are supported by the Lake Champlain Basin Program, in partnership with New York and Vermont Departments of Environmental Conservation and SUNY Plattsburgh.
+
+Please contact [Matthew Vaughan](mailto:mvaughan@lcbp.org) for more information. 
