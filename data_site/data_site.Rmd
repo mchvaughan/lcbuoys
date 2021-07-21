@@ -1,0 +1,99 @@
+---
+title: "Lake Champlain Basin Program buoy data"
+author: "Matthew Vaughan"
+date: "7/20/2021"
+output:
+    html_document:
+    self_contained: false
+    code_folding: hide
+    template: default.html
+    lua-filter: pagebreak.lua
+---
+
+```{r setup, message = FALSE}
+library(RCurl)
+library(tidyverse)
+library(lubridate)
+library(viridis)
+library(plotly)
+
+valcour_url <- "ftp://02d0c8c.netsolhost.com/valcour_pushed_data.csv"
+userpwd <- "lcbp_data:Data123"
+
+valcour <- getURL(valcour_url, 
+              userpwd = userpwd) %>%
+ read_csv(skip = 1) %>%
+ rename(timestamp = `Time America/New_York UTC-04:00`) %>%
+ drop_na() %>%
+ mutate(timestamp = mdy_hms(timestamp)) %>%
+ mutate_if(is.character, as.numeric) %>% # convert all those characters to numeric
+ filter(timestamp > ymd_hms("2021-06-24 00:00:00"))
+```
+
+## Valcour buoy temperature profile
+Here is some text and stuff
+
+
+```{r valcour_temp, out.width = "100%"}
+valcour_watertemp <- valcour %>%
+ select(c(timestamp, starts_with("Temp"))) %>% # select only timestamp and TempXY columns
+ rename(depth_01m = Temp00,
+        depth_02m = Temp01,
+        depth_03m = Temp02,
+        depth_04m = Temp03,
+        depth_05m = Temp04,
+        depth_06m = Temp05,
+        depth_07m = Temp06,
+        depth_08m = Temp07,
+        depth_09m = Temp08,
+        depth_10m = Temp09,
+        depth_11m = Temp10,
+        depth_12m = Temp11,
+        depth_13m = Temp12,
+        depth_14m = Temp13,
+        depth_15m = Temp14,
+        depth_16m = Temp15,
+        depth_17m = Temp16,
+        depth_18m = Temp17,
+        depth_19m = Temp18,
+        depth_20m = Temp19,
+        depth_21m = Temp20,
+        depth_22m = Temp21,
+        depth_23m = Temp22,
+        depth_24m = Temp23,
+        depth_25m = Temp24,
+        depth_26m = Temp25,
+        depth_27m = Temp26,
+        depth_28m = Temp27,
+        depth_29m = Temp28,
+        depth_31m = Temp29,
+        depth_33m = Temp30,
+        depth_35m = Temp31,
+        depth_37m = Temp32,
+        depth_39m = Temp33,
+        depth_41m = Temp34,
+        depth_43m = Temp35,
+        depth_45m = Temp36,
+        depth_47m = Temp37,
+        depth_49m = Temp38) %>%
+ pivot_longer(!timestamp,
+              names_to = "var",
+              values_to = "degC") %>%
+ mutate(depth_m = var %>%
+                  substr(7, 8) %>%
+                  as.numeric())
+
+plot2 <- valcour_watertemp %>%
+  ggplot() +
+  geom_tile(aes(x = timestamp,
+                y = depth_m,
+                fill = degC)) +
+  scale_fill_viridis("Temperature\n(deg C)",
+                     option = "plasma") +
+  scale_y_reverse() +
+  labs(x = "",
+       y = "Depth below water surface (m)")
+
+ggplotly(plot2)
+```
+
