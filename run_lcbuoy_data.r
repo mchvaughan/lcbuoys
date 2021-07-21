@@ -7,7 +7,7 @@ library(rmarkdown)
 library(rmdformats)
 
 render("lcbuoy_data.Rmd",
-       output_file = "data_site/index.html")
+       output_file = "index.html")
 
 
   # ftpUpload(what = "buoyPlots_v2.R",
