@@ -15,6 +15,7 @@ library(viridis)
 library(plotly)
 library(weathermetrics)
 library(dataRetrieval)
+library(scales)
 
 # load ftp info ----------------------
 ftp_info <- "data/ftp_info.csv" %>%
@@ -116,15 +117,6 @@ latest_wind_dir_deg <- latest_valcour %>%
 
 latest_airtemp_degC <- latest_valcour %>%
   pull("air_temp_degC")
-
-
-# tributary data set up ----------------
-
-station_info <- "data/20210723_station_info.csv" %>%
-                read_csv() %>%
-                mutate(gage_number = gage_number %>% # Add leading zero to all gage codes
-                                     paste0("0", .))
-
 
 ```
 # Welcome
@@ -242,23 +234,90 @@ ggplotly(valcour_watertemp_plot)
 ```
 
 
+# Lake Champlain level
+## Lake level data from the past 30 days
+Lake level data is shown below for four locations on Lake Champlain. Data is collected by the [US Geological Survey](hhttps://dashboard.waterdata.usgs.gov/). 
+
+Turn lake level station layers on and off by clicking them in the legend. To see data from only one lake level station, double-click its name. Double-click again to turn all layers back on.
+
+```{r lake_level, message = FALSE, out.width = "100%"}
+lake_level_station_info <- "data/20210726_lake_level_station_info.csv" %>%
+                 read_csv() %>%
+                 mutate(gage_number = gage_number %>% # Add leading zero to all gage codes
+                                      paste0("0", .)) 
+
+lake_level_day_window <- 30
+
+ param_code <- "62614" # Lake water surface elevation above NGVD 1929, feet
+ # param_code <- "62615" # Lake water surface elevation above NAVD 1988, feet
+ time_zone <- "America/New_York"
+
+ end <- Sys.Date()
+ start <-  end - duration(lake_level_day_window, units = "days")
+
+ lake_level <- lake_level_station_info %>%
+  select(c(level_station, gage_number)) %>%
+  mutate(level_data = map(.x = gage_number,
+                     .f = ~readNWISuv(siteNumber = .x,
+                                      startDate = start,
+                                      endDate = end,
+                                      parameterCd = param_code,
+                                      tz = time_zone) %>%
+                           rename(timestamp = dateTime,
+                                 elevation_ft = X_62614_00000) %>%
+                           select(c(timestamp,
+                                    elevation_ft)))) %>%
+   unnest(level_data)
+
+ lake_level_together <- lake_level %>%
+   mutate(level_station = level_station %>%
+                 fct_reorder2(timestamp, elevation_ft)) %>%
+    ggplot() +
+    geom_line(aes(x = timestamp,
+                  y = elevation_ft,
+                  color = level_station),
+              size = 1,
+              alpha = 0.5) +
+    scale_color_viridis("Level station",
+                        discrete = TRUE) + 
+   scale_y_continuous(breaks = pretty_breaks()) +
+   scale_x_datetime(breaks = pretty_breaks()) +
+   labs(x = "",
+        y = "Lake water surface elevation\n(feet above NGVD 1929)") +
+   theme(axis.text = element_text(face = "bold",
+                            size = 14),
+         axis.title = element_text(face = "bold",
+                            size = 14),
+         legend.text = element_text(face = "bold",
+                                    size = 10))
+  
+ggplotly(lake_level_together) 
+
+
+```
+
 # Lake Champlain tributaries
 
 ## Discharge data from the past 30 days
-Discharge (volume of water per time) data is shown below for 16 major tributaries of Lake Champlain. Data is collected by the US Geological Survey. 
+Discharge (volume of water per time) data is shown below for 16 major tributaries of Lake Champlain. Data is collected by the [US Geological Survey](hhttps://dashboard.waterdata.usgs.gov/). 
 
 Turn tributary layers on and off by clicking them in the legend. To see data from only one tributary, double-click its name. Double-click again to turn all layers back on.
 
 ```{r tribs, message = FALSE, out.width = "100%"}
- trib_day_window <- 30
+trib_station_info <- "data/20210723_trib_station_info.csv" %>%
+                 read_csv() %>%
+                 mutate(gage_number = gage_number %>% # Add leading zero to all gage codes
+                                      paste0("0", .)) 
 
- param_code <- "00060"
+trib_day_window <- 30
+
+ param_code <- "00060" # discharge in cfs
  time_zone <- "America/New_York"
 
  end <- Sys.Date()
  start <-  end - duration(trib_day_window, units = "days")
 
- tribq <- station_info %>%
+ tribq <- trib_station_info %>%
   select(c(trib, gage_number)) %>%
   mutate(qdata = map(.x = gage_number,
                      .f = ~readNWISuv(siteNumber = .x,
@@ -267,7 +326,7 @@ Turn tributary layers on and off by clicking them in the legend. To see data fro
                                       parameterCd = param_code,
                                       tz = time_zone) %>%
                            rename(timestamp = dateTime,
-                                               discharge_cfs = X_00060_00000) %>%
+                                              discharge_cfs = X_00060_00000) %>%
                            mutate(discharge_cms = discharge_cfs * 0.0283168) %>%
                            select(c(timestamp,
                                      discharge_cms)))) %>%
