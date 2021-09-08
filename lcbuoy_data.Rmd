@@ -298,8 +298,8 @@ ggplotly(lake_level_together)
 
 # Lake Champlain tributaries
 
-## Discharge data from the past 30 days
-Discharge (volume of water per time) data is shown below for 16 major tributaries of Lake Champlain. Data is collected by the [US Geological Survey](hhttps://dashboard.waterdata.usgs.gov/). 
+## Tributary discharge data from the past 30 days
+Discharge (volume of water per time) data is shown below for 16 major tributaries of Lake Champlain. Data is collected by the [US Geological Survey](https://dashboard.waterdata.usgs.gov/). 
 
 Turn tributary layers on and off by clicking them in the legend. To see data from only one tributary, double-click its name. Double-click again to turn all layers back on.
 
@@ -357,6 +357,36 @@ trib_day_window <- 30
 ggplotly(tribq_together)
 
 
+# Sum discharges together by timestamp
+combined_q <- tribq %>%
+  select(!c(trib, gage_number)) %>%
+  group_by(timestamp) %>%
+  summarise(total_discharge_cms = sum(discharge_cms),
+            n = n()) %>%
+  filter(!n < max(n)) # remove timestamps that don't include all tribs
+  
+n_tribs <- combined_q %>%
+           pull("n") %>%
+           max()
+```
+
+## Total measured discharge from the past 30 days
+The plot below shows the total measured discharge (volume of water per time) delivered to Lake Champlain from the `r n_tribs` tributaries listed above. **Note that there are tributaries and direct-to-lake sources of water that are not monitored and/or not included in this plot.**
+
+```{r combined_q, message = FALSE, out.width = "100%"}
+combined_q_plot <- combined_q %>%
+  ggplot() +
+  geom_line(aes(x = timestamp, y = total_discharge_cms)) +
+  labs(x = "",
+        y = paste("Total measured discharge\n(cubic meters per second)")) +
+  theme(axis.text = element_text(face = "bold",
+                            size = 14),
+        axis.title = element_text(face = "bold",
+                            size = 12),
+        legend.text = element_text(face = "bold",
+                                    size = 10))
+
+ggplotly(combined_q_plot)
 ```
 
 # More information
