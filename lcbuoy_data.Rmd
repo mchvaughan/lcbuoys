@@ -236,12 +236,12 @@ ggplotly(valcour_watertemp_plot)
 
 # Lake Champlain level
 ## Lake level data from the past 30 days
-Lake level data is shown below for four locations on Lake Champlain. Data is collected by the [US Geological Survey](hhttps://dashboard.waterdata.usgs.gov/). 
+Lake level data is shown below for four locations on Lake Champlain. Data is collected by the [US Geological Survey](https://dashboard.waterdata.usgs.gov/). 
 
 Turn lake level station layers on and off by clicking them in the legend. To see data from only one lake level station, double-click its name. Double-click again to turn all layers back on.
 
 ```{r lake_level, message = FALSE, out.width = "100%"}
-lake_level_station_info <- "data/20210726_lake_level_station_info.csv" %>%
+lake_level_station_info <- "data/lake_level_station_info.csv" %>%
                  read_csv() %>%
                  mutate(gage_number = gage_number %>% # Add leading zero to all gage codes
                                       paste0("0", .)) 
@@ -256,7 +256,7 @@ lake_level_day_window <- 30
  start <-  end - duration(lake_level_day_window, units = "days")
 
  lake_level <- lake_level_station_info %>%
-  select(c(level_station, gage_number)) %>%
+  select(c(station, gage_number)) %>%
   mutate(level_data = map(.x = gage_number,
                      .f = ~readNWISuv(siteNumber = .x,
                                       startDate = start,
@@ -270,12 +270,12 @@ lake_level_day_window <- 30
    unnest(level_data)
 
  lake_level_together <- lake_level %>%
-   mutate(level_station = level_station %>%
+   mutate(station = station %>%
                  fct_reorder2(timestamp, elevation_ft)) %>%
     ggplot() +
     geom_line(aes(x = timestamp,
                   y = elevation_ft,
-                  color = level_station),
+                  color = station),
               size = 1,
               alpha = 0.5) +
     scale_color_viridis("Level station",
@@ -296,15 +296,78 @@ ggplotly(lake_level_together)
 
 ```
 
+# Lake Champlain water temperature
+Water temperature data is shown below for three locations on Lake Champlain. Data is collected by the [US Geological Survey](https://dashboard.waterdata.usgs.gov/). 
+
+Turn temperature station layers on and off by clicking them in the legend. To see data from only one lake temperature station, double-click its name. Double-click again to turn all layers back on.
+```{r usgs_water_temp, message = FALSE, out.width = "100%"}
+lake_temp_station_info <- "data/lake_temp_station_info.csv" %>%
+                 read_csv() %>%
+                 mutate(gage_number = gage_number %>% # Add leading zero to all gage codes
+                                      paste0("0", .)) 
+
+lake_temp_day_window <- 30
+
+ param_code <- "00010" # water temperature in degC
+ # param_code <- "62615" # Lake water surface elevation above NAVD 1988, feet
+ time_zone <- "America/New_York"
+
+ end <- Sys.Date()
+ start <-  end - duration(lake_temp_day_window, units = "days")
+
+ lake_temp <- lake_temp_station_info %>%
+  select(c(station, gage_number)) %>%
+  mutate(temp_data = map(.x = gage_number,
+                     .f = ~readNWISuv(siteNumber = .x,
+                                      startDate = start,
+                                      endDate = end,
+                                      parameterCd = param_code,
+                                      tz = time_zone) %>%
+                           rename(timestamp = dateTime,
+                                 water_temp_degC = X_00010_00000) %>%
+                           select(c(timestamp,
+                                    water_temp_degC)))) %>%
+   unnest(temp_data)
+
+ lake_temp_together <- lake_temp %>%
+   mutate(station = station %>%
+                 fct_reorder2(timestamp, water_temp_degC)) %>%
+    ggplot() +
+    geom_line(aes(x = timestamp,
+                  y = water_temp_degC,
+                  color = station),
+              size = 1,
+              alpha = 0.5) +
+    scale_color_viridis("Temperature station",
+                        discrete = TRUE) + 
+   scale_y_continuous(breaks = pretty_breaks()) +
+   scale_x_datetime(breaks = pretty_breaks()) +
+   labs(x = "",
+        y = "Lake water temperature\n(Degrees C)") +
+   theme(axis.text = element_text(face = "bold",
+                            size = 14),
+         axis.title = element_text(face = "bold",
+                            size = 14),
+         legend.text = element_text(face = "bold",
+                                    size = 10))
+  
+ggplotly(lake_temp_together) 
+```
+
 # Lake Champlain tributaries
 
 ## Tributary discharge data from the past 30 days
-Discharge (volume of water per time) data is shown below for 16 major tributaries of Lake Champlain. Data is collected by the [US Geological Survey](https://dashboard.waterdata.usgs.gov/). 
+```{r count_tribs, include = FALSE}
+n_tribs <- trib_station_info <- "data/trib_station_info.csv" %>%
+                 read_csv() %>%
+                 nrow()
+```
+Discharge (volume of water per time) data is shown below for `r n_tribs` major tributaries of Lake Champlain. Data is collected by the [US Geological Survey](https://dashboard.waterdata.usgs.gov/). 
 
 Turn tributary layers on and off by clicking them in the legend. To see data from only one tributary, double-click its name. Double-click again to turn all layers back on.
 
 ```{r tribs, message = FALSE, out.width = "100%"}
-trib_station_info <- "data/20210723_trib_station_info.csv" %>%
+trib_station_info <- "data/trib_station_info.csv" %>%
                  read_csv() %>%
                  mutate(gage_number = gage_number %>% # Add leading zero to all gage codes
                                       paste0("0", .)) 
@@ -365,13 +428,13 @@ combined_q <- tribq %>%
             n = n()) %>%
   filter(!n < max(n)) # remove timestamps that don't include all tribs
   
-n_tribs <- combined_q %>%
+n_combined_tribs <- combined_q %>%
            pull("n") %>%
            max()
 ```
 
 ## Total measured discharge from the past 30 days
-The plot below shows the total measured discharge (volume of water per time) delivered to Lake Champlain from the `r n_tribs` tributaries listed above. **Note that there are tributaries and direct-to-lake sources of water that are not monitored and/or not included in this plot.**
+The plot below shows the total measured discharge (volume of water per time) delivered to Lake Champlain from the `r n_combined_tribs` tributaries listed above. **Note that there are tributaries and direct-to-lake sources of water that are not monitored and/or not included in this plot.**
 
 ```{r combined_q, message = FALSE, out.width = "100%"}
 combined_q_plot <- combined_q %>%
