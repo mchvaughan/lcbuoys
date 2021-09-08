@@ -330,7 +330,9 @@ trib_day_window <- 30
                            mutate(discharge_cms = discharge_cfs * 0.0283168) %>%
                            select(c(timestamp,
                                      discharge_cms)))) %>%
-   unnest(qdata)
+   unnest(qdata) %>%
+   filter(!(timestamp == ymd_hms("2021-09-01 05:30:00", tz = "EDT") &
+           trib == "Mettawee")) # remove erroneous value
 
  tribq_together <- tribq %>%
    mutate(trib = trib %>%
@@ -358,8 +360,10 @@ ggplotly(tribq_together)
 ```
 
 # More information
-Lake Champlain monitoring buoys are supported by the Lake Champlain Basin Program, in partnership with New York and Vermont Departments of Environmental Conservation and SUNY Plattsburgh.
+Lake Champlain monitoring buoys are supported by the [Lake Champlain Basin Program](http://lcbp.org), in partnership with New York and Vermont Departments of Environmental Conservation and SUNY Plattsburgh.
 
-Two additional buoys will be deployed in Lake Champlain and added to this website later in 2021.
+Two additional buoys will be deployed in Lake Champlain and added to this website in 2022.
 
-Please contact [Matthew Vaughan](mailto:mvaughan@lcbp.org) for more information. 
+This website was developed by Matthew Vaughan, Technical Coordinator at the Lake Champlain Basin Program. [Please contact Matthew](mailto:mvaughan@lcbp.org) for more information. 
+
+![](./data/LCBP_NEIWPCC.png)
