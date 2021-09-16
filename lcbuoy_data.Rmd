@@ -254,13 +254,13 @@ ggplotly(latest_valcour_watertemp_plot_metric)
 ```{r past_week, eval = FALSE, out.width = "100%"}
 # Turned off for now. 
 # enter number of days to look back:
-day_window <- 7
+day_window <- 3
 
 timestamp_labeller <- function(x){
   as.POSIXct(x, origin = '1970-01-01')
 }
 
-last_week_valcour_watertemp_plot <- valcour_watertemp %>%
+window_valcour_watertemp_plot <- valcour_watertemp %>%
   filter(timestamp > (latest_timestamp - duration(day_window, units = "days"))) %>%
   ggplot() +
   geom_line(aes(x = degC,
@@ -276,30 +276,30 @@ last_week_valcour_watertemp_plot <- valcour_watertemp %>%
   labs(x = "Temperature (deg C)",
        y = "Depth below water surface (m)")
 
-ggplotly(last_week_valcour_watertemp_plot)
+ggplotly(window_valcour_watertemp_plot)
 ```
 
 ## Water temperature data from the past 30 days: {.tabset}
-### In degrees Fahrenheit
-```{r valcour_watertemp_degF, out.width = "100%"}
-valcour_watertemp_plot_degF <- valcour_watertemp %>%
+### In imperial units
+```{r valcour_watertemp_imperial, out.width = "100%"}
+valcour_watertemp_plot_imperial <- valcour_watertemp %>%
   ggplot() +
   geom_tile(aes(x = timestamp,
-                y = depth_m,
+                y = depth_ft,
                 fill = degF)) +
   scale_fill_viridis("Temperature\n(deg F)",
                      option = "plasma") +
   scale_y_reverse() +
   labs(x = "",
-       y = "Depth below water surface (m)") +
+       y = "Depth below water surface (ft)") +
   theme(text = element_text(face = "bold",
                             size = 14))
 
-ggplotly(valcour_watertemp_plot_degF)
+ggplotly(valcour_watertemp_plot_imperial)
 ```
-### In degrees Celsius
-```{r valcour_watertemp_degC, out.width = "100%"}
-valcour_watertemp_plot_degC <- valcour_watertemp %>%
+### In metric units
+```{r valcour_watertemp_metric, out.width = "100%"}
+valcour_watertemp_plot_metric <- valcour_watertemp %>%
   ggplot() +
   geom_tile(aes(x = timestamp,
                 y = depth_m,
@@ -312,7 +312,7 @@ valcour_watertemp_plot_degC <- valcour_watertemp %>%
   theme(text = element_text(face = "bold",
                             size = 14))
 
-ggplotly(valcour_watertemp_plot_degC)
+ggplotly(valcour_watertemp_plot_metric)
 ```
 
 # Lake Champlain level
