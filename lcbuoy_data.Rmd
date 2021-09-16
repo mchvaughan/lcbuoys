@@ -5,6 +5,7 @@ date: "`r Sys.Date()`"
 output:
   rmdformats::downcute:
     code_folding: hide
+
 ---
 ```{r setup, include = FALSE}
 # load packages ------------------
@@ -79,8 +80,10 @@ valcour <- getURL(valcour_url,
         air_temp_degC = `Air Temperature`,
         wind_speed_mps = `Wind Speed`,
         wind_direction_deg = `Wind Direction`) %>%
-  mutate(rel_atm_pressure_kPa = rel_atm_pressure_inHg * 3.38639) %>% # convert to kPa 
-  select(-rel_atm_pressure_inHg) # remove the inHg version
+  mutate(rel_atm_pressure_kPa = rel_atm_pressure_inHg * 3.38639,  # convert to kPa
+         air_temp_degF = air_temp_degC %>% # convert to deg F
+                         celsius.to.fahrenheit(),
+         wind_speed_mph = wind_speed_mps * 2.23694) # convert to miles per hour
 
 valcour_watertemp <- valcour %>%
  select(c(timestamp, starts_with("temp"))) %>% # select only timestamp and temperature columns
@@ -89,14 +92,10 @@ valcour_watertemp <- valcour %>%
               values_to = "degC") %>%
  mutate(depth_m = var %>% # find the water depth
                   substr(6, 7) %>% # pull the number out of the name
-                  as.numeric()) # convert to numeric
-
-# organize valcour weather data
-valcour_weather <- valcour %>%
- select(-starts_with("temp")) %>% # select all non-temperature columns
- pivot_longer(-timestamp,
-              names_to = "var",
-              values_to = "value")
+                  as.numeric(), # convert to numeric
+        depth_ft = depth_m * 3.28084, # convert to ft
+        degF = degC %>% # create column for Fahrenheit
+               celsius.to.fahrenheit()) 
 
 # find latest valcour conditions
 latest_valcour <- valcour %>%
@@ -141,11 +140,58 @@ The Valcour monitoring buoy is located in the Main Lake segment, near Valcour Is
 
 **Relative atmospheric pressure:** `r round(latest_baro_pressure_kPa, 1)` kilopascals (`r round(latest_baro_pressure_kPa*7.50062, 1)` millimeters of mercury; `r round(latest_baro_pressure_kPa*0.2953, 1)` inches of mercury)
 
-## Weather conditions from the past 30 days:
-```{r valcour_weather, out.width = "100%"}
-valcour_weather_plot <- valcour_weather %>%
-  filter(!(timestamp == ymd_hms("2021-07-06 03:30:00") &
-           var == "wind_speed_mps")) %>% # remove erroneous value
+## Weather conditions from the past 30 days: {.tabset}
+
+### In imperial units
+```{r valcour_weather_imperial, out.width = "100%"}
+valcour_weather_plot_imperial <- valcour %>%
+ select(-starts_with("temp")) %>% # select all non-temperature columns
+ select(c(timestamp,
+          air_temp_degF,
+          wind_speed_mph,
+          wind_direction_deg,
+          rel_atm_pressure_inHg)) %>% # select parameters with the correct units
+ pivot_longer(-timestamp,
+              names_to = "var",
+              values_to = "value") %>%
+  filter(!(timestamp == ymd_hms("2021-07-06 03:30:00"))) %>% # remove erroneous value
+  filter(!(timestamp == ymd_hms("2021-09-07 16:15:00"))) %>% # remove erroneous value
+  mutate(var = var %>%
+               recode(air_temp_degF = "Air temperature (degrees Fahrenheit)",
+                      wind_speed_mph = "Wind speed (miles per hour)",
+                      wind_direction_deg = "Wind direction (degrees from North)",
+                      rel_atm_pressure_inHg = "Relative atmospheric pressure (inch of mercury)")) %>%
+  ggplot() +
+  geom_line(aes(x = timestamp,
+                y = value,
+                color = var)) +
+  facet_wrap(var ~ .,
+             scales = "free_y",
+             ncol = 1,
+             strip.position = "top") +
+  scale_color_viridis(discrete = TRUE) +
+  theme(legend.position = "none",
+        text = element_text(face = "bold",
+                                  size = 14)) +
+  labs(x = "", y = "")
+
+ggplotly(valcour_weather_plot_imperial)
+```
+
+### In metric units
+```{r valcour_weather_metric, out.width = "100%"}
+valcour_weather_plot_metric <- valcour %>%
+ select(-starts_with("temp")) %>% # select all non-temperature columns
+ select(c(timestamp,
+          air_temp_degC,
+          wind_speed_mps,
+          wind_direction_deg,
+          rel_atm_pressure_kPa)) %>% # select parameters with the correct units
+ pivot_longer(-timestamp,
+              names_to = "var",
+              values_to = "value") %>%
+  filter(!(timestamp == ymd_hms("2021-07-06 03:30:00"))) %>% # remove erroneous value
+  filter(!(timestamp == ymd_hms("2021-09-07 16:15:00"))) %>% # remove erroneous value
   mutate(var = var %>%
                recode(air_temp_degC = "Air temperature (degrees Celsius)",
                       wind_speed_mps = "Wind speed (meters per second)",
@@ -165,13 +211,31 @@ valcour_weather_plot <- valcour_weather %>%
                                   size = 14)) +
   labs(x = "", y = "")
 
-ggplotly(valcour_weather_plot)
-
+ggplotly(valcour_weather_plot_metric)
 ```
 
-## Latest water temperature profile, recorded `r latest_timestamp`
-``` {r valcour_current_water_temp, out.width = "100%"}
-latest_valcour_watertemp_plot <- valcour_watertemp %>%
+## Latest water temperature profile, recorded `r latest_timestamp` {.tabset}
+
+### In imperial units
+``` {r valcour_current_water_temp_imperial, out.width = "100%"}
+latest_valcour_watertemp_plot_imperial <- valcour_watertemp %>%
+  filter(timestamp == latest_timestamp) %>%
+  ggplot() +
+  geom_line(aes(x = degF,
+                y = depth_ft),
+            size = 1.5) +
+  scale_y_reverse() +
+  labs(x = "Temperature (deg F)",
+       y = "Depth below water surface (ft)") +
+  theme(text = element_text(face = "bold",
+                            size = 14))
+
+ggplotly(latest_valcour_watertemp_plot_imperial)
+```
+
+### In metric units
+``` {r valcour_current_water_temp_metric, out.width = "100%"}
+latest_valcour_watertemp_plot_metric <- valcour_watertemp %>%
   filter(timestamp == latest_timestamp) %>%
   ggplot() +
   geom_line(aes(x = degC,
@@ -183,7 +247,7 @@ latest_valcour_watertemp_plot <- valcour_watertemp %>%
   theme(text = element_text(face = "bold",
                             size = 14))
 
-ggplotly(latest_valcour_watertemp_plot)
+ggplotly(latest_valcour_watertemp_plot_metric)
 ```
 
 
@@ -215,9 +279,27 @@ last_week_valcour_watertemp_plot <- valcour_watertemp %>%
 ggplotly(last_week_valcour_watertemp_plot)
 ```
 
-## Water temperature data from the past 30 days:
-```{r valcour_watertemp, out.width = "100%"}
-valcour_watertemp_plot <- valcour_watertemp %>%
+## Water temperature data from the past 30 days: {.tabset}
+### In degrees Fahrenheit
+```{r valcour_watertemp_degF, out.width = "100%"}
+valcour_watertemp_plot_degF <- valcour_watertemp %>%
+  ggplot() +
+  geom_tile(aes(x = timestamp,
+                y = depth_m,
+                fill = degF)) +
+  scale_fill_viridis("Temperature\n(deg F)",
+                     option = "plasma") +
+  scale_y_reverse() +
+  labs(x = "",
+       y = "Depth below water surface (m)") +
+  theme(text = element_text(face = "bold",
+                            size = 14))
+
+ggplotly(valcour_watertemp_plot_degF)
+```
+### In degrees Celsius
+```{r valcour_watertemp_degC, out.width = "100%"}
+valcour_watertemp_plot_degC <- valcour_watertemp %>%
   ggplot() +
   geom_tile(aes(x = timestamp,
                 y = depth_m,
@@ -230,9 +312,8 @@ valcour_watertemp_plot <- valcour_watertemp %>%
   theme(text = element_text(face = "bold",
                             size = 14))
 
-ggplotly(valcour_watertemp_plot)
+ggplotly(valcour_watertemp_plot_degC)
 ```
-
 
 # Lake Champlain level
 ## Lake level data from the past 30 days
@@ -296,25 +377,29 @@ ggplotly(lake_level_together)
 
 ```
 
-# Lake Champlain water temperature
+# Lake Champlain water temperature {.tabset}
 Water temperature data is shown below for three locations on Lake Champlain. Data is collected by the [US Geological Survey](https://dashboard.waterdata.usgs.gov/). 
 
 Turn temperature station layers on and off by clicking them in the legend. To see data from only one lake temperature station, double-click its name. Double-click again to turn all layers back on.
-```{r usgs_water_temp, message = FALSE, out.width = "100%"}
+
+## In degrees Fahrenheit
+```{r usgs_water_temp_degF, message = FALSE, out.width = "100%"}
+# gather station info
 lake_temp_station_info <- "data/lake_temp_station_info.csv" %>%
                  read_csv() %>%
                  mutate(gage_number = gage_number %>% # Add leading zero to all gage codes
                                       paste0("0", .)) 
-
+# enter plot window duration
 lake_temp_day_window <- 30
-
- param_code <- "00010" # water temperature in degC
- # param_code <- "62615" # Lake water surface elevation above NAVD 1988, feet
- time_zone <- "America/New_York"
-
+# set start and end dates
  end <- Sys.Date()
  start <-  end - duration(lake_temp_day_window, units = "days")
 
+# USGS parameter code and time zone
+ param_code <- "00010" # water temperature in degC
+ time_zone <- "America/New_York"
+
+# gather data and create tibble
  lake_temp <- lake_temp_station_info %>%
   select(c(station, gage_number)) %>%
   mutate(temp_data = map(.x = gage_number,
@@ -327,9 +412,39 @@ lake_temp_day_window <- 30
                                  water_temp_degC = X_00010_00000) %>%
                            select(c(timestamp,
                                     water_temp_degC)))) %>%
-   unnest(temp_data)
+   unnest(temp_data) %>%
+   mutate(water_temp_degF = water_temp_degC %>% # create column for Fahrenheit
+                            celsius.to.fahrenheit())
 
- lake_temp_together <- lake_temp %>%
+# plot water temps in deg F
+ lake_temp_together_degF <- lake_temp %>%
+   mutate(station = station %>%
+                 fct_reorder2(timestamp, water_temp_degF)) %>%
+    ggplot() +
+    geom_line(aes(x = timestamp,
+                  y = water_temp_degF,
+                  color = station),
+              size = 1,
+              alpha = 0.5) +
+    scale_color_viridis("Temperature station",
+                        discrete = TRUE) + 
+   scale_y_continuous(breaks = pretty_breaks()) +
+   scale_x_datetime(breaks = pretty_breaks()) +
+   labs(x = "",
+        y = "Lake water temperature\n(Degrees F)") +
+   theme(axis.text = element_text(face = "bold",
+                            size = 14),
+         axis.title = element_text(face = "bold",
+                            size = 14),
+         legend.text = element_text(face = "bold",
+                                    size = 10))
+  
+ggplotly(lake_temp_together_degF) 
+```
+## In degrees Celsius
+```{r usgs_water_temp_degC, message = FALSE, out.width = "100%"}
+# plot water temps in deg C
+ lake_temp_together_degC <- lake_temp %>%
    mutate(station = station %>%
                  fct_reorder2(timestamp, water_temp_degC)) %>%
     ggplot() +
@@ -350,13 +465,13 @@ lake_temp_day_window <- 30
                             size = 14),
          legend.text = element_text(face = "bold",
                                     size = 10))
-  
-ggplotly(lake_temp_together) 
+
+ggplotly(lake_temp_together_degC) 
 ```
 
 # Lake Champlain tributaries
 
-## Tributary discharge data from the past 30 days
+## Tributary discharge data from the past 30 days {.tabset}
 ```{r count_tribs, include = FALSE}
 n_tribs <- trib_station_info <- "data/trib_station_info.csv" %>%
                  read_csv() %>%
@@ -366,7 +481,8 @@ Discharge (volume of water per time) data is shown below for `r n_tribs` major t
 
 Turn tributary layers on and off by clicking them in the legend. To see data from only one tributary, double-click its name. Double-click again to turn all layers back on.
 
-```{r tribs, message = FALSE, out.width = "100%"}
+### In cubic feet per second
+```{r tribs_cfs, message = FALSE, out.width = "100%"}
 trib_station_info <- "data/trib_station_info.csv" %>%
                  read_csv() %>%
                  mutate(gage_number = gage_number %>% # Add leading zero to all gage codes
@@ -392,12 +508,51 @@ trib_day_window <- 30
                                               discharge_cfs = X_00060_00000) %>%
                            mutate(discharge_cms = discharge_cfs * 0.0283168) %>%
                            select(c(timestamp,
-                                     discharge_cms)))) %>%
+                                    discharge_cfs,
+                                    discharge_cms)))) %>%
    unnest(qdata) %>%
    filter(!(timestamp == ymd_hms("2021-09-01 05:30:00", tz = "EDT") &
            trib == "Mettawee")) # remove erroneous value
 
- tribq_together <- tribq %>%
+ tribq_together_cfs <- tribq %>%
+   mutate(trib = trib %>%
+                 fct_reorder2(timestamp, discharge_cms)) %>%
+    ggplot() +
+    geom_line(aes(x = timestamp,
+                  y = discharge_cfs,
+                  color = trib),
+              size = 1,
+              alpha = 0.5) +
+    scale_color_viridis("Tributary",
+                        discrete = TRUE) + 
+   labs(x = "",
+        y = "Discharge (cubic feet per second)") +
+   theme(axis.text = element_text(face = "bold",
+                            size = 14),
+         axis.title = element_text(face = "bold",
+                            size = 14),
+         legend.text = element_text(face = "bold",
+                                    size = 10))
+  
+ggplotly(tribq_together_cfs)
+
+# Sum discharges together by timestamp
+combined_q <- tribq %>%
+  select(!c(trib, gage_number)) %>%
+  group_by(timestamp) %>%
+  summarise(total_discharge_cms = sum(discharge_cms),
+            total_discharge_cfs = sum(discharge_cfs),
+            n = n()) %>%
+  filter(!n < max(n)) # remove timestamps that don't include all tribs
+  
+n_combined_tribs <- combined_q %>%
+           pull("n") %>%
+           max()
+```
+
+### In cubic meters per second
+```{r tribs_cms,message = FALSE, out.width = "100%"}
+ tribq_together_cms <- tribq %>%
    mutate(trib = trib %>%
                  fct_reorder2(timestamp, discharge_cms)) %>%
     ggplot() +
@@ -417,27 +572,32 @@ trib_day_window <- 30
          legend.text = element_text(face = "bold",
                                     size = 10))
   
-ggplotly(tribq_together)
-
-
-# Sum discharges together by timestamp
-combined_q <- tribq %>%
-  select(!c(trib, gage_number)) %>%
-  group_by(timestamp) %>%
-  summarise(total_discharge_cms = sum(discharge_cms),
-            n = n()) %>%
-  filter(!n < max(n)) # remove timestamps that don't include all tribs
-  
-n_combined_tribs <- combined_q %>%
-           pull("n") %>%
-           max()
+ggplotly(tribq_together_cms)
 ```
 
-## Total measured discharge from the past 30 days
+## Total measured discharge from the past 30 days {.tabset}
 The plot below shows the total measured discharge (volume of water per time) delivered to Lake Champlain from the `r n_combined_tribs` tributaries listed above. **Note that there are tributaries and direct-to-lake sources of water that are not monitored and/or not included in this plot.**
 
-```{r combined_q, message = FALSE, out.width = "100%"}
-combined_q_plot <- combined_q %>%
+### In cubic feet per second
+```{r combined_q_cfs, message = FALSE, out.width = "100%"}
+combined_q_plot_cfs <- combined_q %>%
+  ggplot() +
+  geom_line(aes(x = timestamp, y = total_discharge_cfs)) +
+  labs(x = "",
+        y = paste("Total measured discharge\n(cubic feet per second)")) +
+  theme(axis.text = element_text(face = "bold",
+                            size = 14),
+        axis.title = element_text(face = "bold",
+                            size = 12),
+        legend.text = element_text(face = "bold",
+                                    size = 10))
+
+ggplotly(combined_q_plot_cfs)
+```
+
+### In cubic meters per second
+```{r combined_q_cms, message = FALSE, out.width = "100%"}
+combined_q_plot_cms <- combined_q %>%
   ggplot() +
   geom_line(aes(x = timestamp, y = total_discharge_cms)) +
   labs(x = "",
@@ -449,8 +609,9 @@ combined_q_plot <- combined_q %>%
         legend.text = element_text(face = "bold",
                                     size = 10))
 
-ggplotly(combined_q_plot)
+ggplotly(combined_q_plot_cms)
 ```
+
 
 # More information
 Lake Champlain monitoring buoys are supported by the [Lake Champlain Basin Program](http://lcbp.org), in partnership with New York and Vermont Departments of Environmental Conservation and SUNY Plattsburgh.
