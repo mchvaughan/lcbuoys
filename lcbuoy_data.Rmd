@@ -125,196 +125,6 @@ All data plots are interactive. Hover over plots to see details on each measurem
 
 **This website is under development. All data is provisional and for educational purposes only.**
 
-
-# Valcour buoy
-
-The Valcour monitoring buoy is located in the Main Lake segment, near Valcour Island.
-
-## Latest weather conditions, recorded `r latest_timestamp`
-
-**Air temperature:** `r latest_airtemp_degC` degrees Celsius (`r round(celsius.to.fahrenheit(latest_airtemp_degC), 1)` degrees Fahrenheit)
-
-**Wind speed:** `r round(latest_wind_speed_mps, 1)` meters per second (`r round(convert_wind_speed(latest_wind_speed_mps, old_metric = "mps", new_metric = "mph"), 1)` miles per hour)
-
-**Wind direction:** `r latest_wind_dir_deg` degrees from North
-
-**Relative atmospheric pressure:** `r round(latest_baro_pressure_kPa, 1)` kilopascals (`r round(latest_baro_pressure_kPa*7.50062, 1)` millimeters of mercury; `r round(latest_baro_pressure_kPa*0.2953, 1)` inches of mercury)
-
-## Weather conditions from the past 30 days: {.tabset}
-
-### In imperial units
-```{r valcour_weather_imperial, out.width = "100%"}
-valcour_weather_plot_imperial <- valcour %>%
- select(-starts_with("temp")) %>% # select all non-temperature columns
- select(c(timestamp,
-          air_temp_degF,
-          wind_speed_mph,
-          wind_direction_deg,
-          rel_atm_pressure_inHg)) %>% # select parameters with the correct units
- pivot_longer(-timestamp,
-              names_to = "var",
-              values_to = "value") %>%
-  filter(!(timestamp == ymd_hms("2021-07-06 03:30:00"))) %>% # remove erroneous value
-  filter(!(timestamp == ymd_hms("2021-09-07 16:15:00"))) %>% # remove erroneous value
-  mutate(var = var %>%
-               recode(air_temp_degF = "Air temperature (degrees Fahrenheit)",
-                      wind_speed_mph = "Wind speed (miles per hour)",
-                      wind_direction_deg = "Wind direction (degrees from North)",
-                      rel_atm_pressure_inHg = "Relative atmospheric pressure (inch of mercury)")) %>%
-  ggplot() +
-  geom_line(aes(x = timestamp,
-                y = value,
-                color = var)) +
-  facet_wrap(var ~ .,
-             scales = "free_y",
-             ncol = 1,
-             strip.position = "top") +
-  scale_color_viridis(discrete = TRUE) +
-  theme(legend.position = "none",
-        text = element_text(face = "bold",
-                                  size = 14)) +
-  labs(x = "", y = "")
-
-ggplotly(valcour_weather_plot_imperial)
-```
-
-### In metric units
-```{r valcour_weather_metric, out.width = "100%"}
-valcour_weather_plot_metric <- valcour %>%
- select(-starts_with("temp")) %>% # select all non-temperature columns
- select(c(timestamp,
-          air_temp_degC,
-          wind_speed_mps,
-          wind_direction_deg,
-          rel_atm_pressure_kPa)) %>% # select parameters with the correct units
- pivot_longer(-timestamp,
-              names_to = "var",
-              values_to = "value") %>%
-  filter(!(timestamp == ymd_hms("2021-07-06 03:30:00"))) %>% # remove erroneous value
-  filter(!(timestamp == ymd_hms("2021-09-07 16:15:00"))) %>% # remove erroneous value
-  mutate(var = var %>%
-               recode(air_temp_degC = "Air temperature (degrees Celsius)",
-                      wind_speed_mps = "Wind speed (meters per second)",
-                      wind_direction_deg = "Wind direction (degrees from North)",
-                      rel_atm_pressure_kPa = "Relative atmospheric pressure (kilopascals)")) %>%
-  ggplot() +
-  geom_line(aes(x = timestamp,
-                y = value,
-                color = var)) +
-  facet_wrap(var ~ .,
-             scales = "free_y",
-             ncol = 1,
-             strip.position = "top") +
-  scale_color_viridis(discrete = TRUE) +
-  theme(legend.position = "none",
-        text = element_text(face = "bold",
-                                  size = 14)) +
-  labs(x = "", y = "")
-
-ggplotly(valcour_weather_plot_metric)
-```
-
-## Latest water temperature profile, recorded `r latest_timestamp` {.tabset}
-
-### In imperial units
-``` {r valcour_current_water_temp_imperial, out.width = "100%"}
-latest_valcour_watertemp_plot_imperial <- valcour_watertemp %>%
-  filter(timestamp == latest_timestamp) %>%
-  ggplot() +
-  geom_line(aes(x = degF,
-                y = depth_ft),
-            size = 1.5) +
-  scale_y_reverse() +
-  labs(x = "Temperature (deg F)",
-       y = "Depth below water surface (ft)") +
-  theme(text = element_text(face = "bold",
-                            size = 14))
-
-ggplotly(latest_valcour_watertemp_plot_imperial)
-```
-
-### In metric units
-``` {r valcour_current_water_temp_metric, out.width = "100%"}
-latest_valcour_watertemp_plot_metric <- valcour_watertemp %>%
-  filter(timestamp == latest_timestamp) %>%
-  ggplot() +
-  geom_line(aes(x = degC,
-                y = depth_m),
-            size = 1.5) +
-  scale_y_reverse() +
-  labs(x = "Temperature (deg C)",
-       y = "Depth below water surface (m)") +
-  theme(text = element_text(face = "bold",
-                            size = 14))
-
-ggplotly(latest_valcour_watertemp_plot_metric)
-```
-
-
-```{r past_week, eval = FALSE, out.width = "100%"}
-# Turned off for now. 
-# enter number of days to look back:
-day_window <- 3
-
-timestamp_labeller <- function(x){
-  as.POSIXct(x, origin = '1970-01-01')
-}
-
-window_valcour_watertemp_plot <- valcour_watertemp %>%
-  filter(timestamp > (latest_timestamp - duration(day_window, units = "days"))) %>%
-  ggplot() +
-  geom_line(aes(x = degC,
-                y = depth_m,
-                color = timestamp,
-                group = timestamp),
-            alpha = 0.4,
-            size = 1) +
-  scale_y_reverse() +
-  scale_color_viridis(option = "magma",
-                      direction = -1,
-                      labels = timestamp_labeller) +
-  labs(x = "Temperature (deg C)",
-       y = "Depth below water surface (m)")
-
-ggplotly(window_valcour_watertemp_plot)
-```
-
-## Water temperature data from the past 30 days: {.tabset}
-### In imperial units
-```{r valcour_watertemp_imperial, out.width = "100%"}
-valcour_watertemp_plot_imperial <- valcour_watertemp %>%
-  ggplot() +
-  geom_tile(aes(x = timestamp,
-                y = depth_ft,
-                fill = degF)) +
-  scale_fill_viridis("Temperature\n(deg F)",
-                     option = "plasma") +
-  scale_y_reverse() +
-  labs(x = "",
-       y = "Depth below water surface (ft)") +
-  theme(text = element_text(face = "bold",
-                            size = 14))
-
-ggplotly(valcour_watertemp_plot_imperial)
-```
-### In metric units
-```{r valcour_watertemp_metric, out.width = "100%"}
-valcour_watertemp_plot_metric <- valcour_watertemp %>%
-  ggplot() +
-  geom_tile(aes(x = timestamp,
-                y = depth_m,
-                fill = degC)) +
-  scale_fill_viridis("Temperature\n(deg C)",
-                     option = "plasma") +
-  scale_y_reverse() +
-  labs(x = "",
-       y = "Depth below water surface (m)") +
-  theme(text = element_text(face = "bold",
-                            size = 14))
-
-ggplotly(valcour_watertemp_plot_metric)
-```
-
 # Lake Champlain level
 ## Lake level data from the past 30 days
 Lake level data is shown below for four locations on Lake Champlain. Data is collected by the [US Geological Survey](https://dashboard.waterdata.usgs.gov/). 
@@ -473,7 +283,7 @@ ggplotly(lake_temp_together_degC)
 
 ## Tributary discharge data from the past 30 days {.tabset}
 ```{r count_tribs, include = FALSE}
-n_tribs <- trib_station_info <- "data/trib_station_info.csv" %>%
+n_tribs <- "data/trib_station_info.csv" %>%
                  read_csv() %>%
                  nrow()
 ```
@@ -575,6 +385,30 @@ n_combined_tribs <- combined_q %>%
 ggplotly(tribq_together_cms)
 ```
 
+## {.toc-ignore}
+Map of major tributary discharge monitoring locations
+```{r trib_map, message = FALSE, out.width = "100%"}
+# load mapping packages
+library(mapboxapi)
+library(leaflet)
+# library(sf)
+
+# define buoy location
+station_loc <- "data/trib_station_info.csv" %>%
+                 read_csv()
+
+# subbasins_poly <- "data/lcb_subbasin_shapefile/LCB_2013_subbasins.shp" %>%
+#                   st_read()
+# create the map
+station_loc %>%
+  leaflet() %>%
+  addProviderTiles("Esri.WorldImagery") %>%
+  # addPolygons(data = subbasins_poly) %>%
+  addMarkers(lng = ~lng,
+             lat = ~lat,
+             label = ~trib)
+```
+
 ## Total measured discharge from the past 30 days {.tabset}
 The plot below shows the total measured discharge (volume of water per time) delivered to Lake Champlain from the `r n_combined_tribs` tributaries listed above. **Note that there are tributaries and direct-to-lake sources of water that are not monitored and/or not included in this plot.**
 
@@ -612,12 +446,232 @@ combined_q_plot_cms <- combined_q %>%
 ggplotly(combined_q_plot_cms)
 ```
 
+# Valcour buoy (not currently deployed)
+
+**The Valcour monitoring buoy has been removed for the 2021 season. It will be re-deployed in spring 2022.** 
+**Late 2021 data is shown below for educational purposes only.**
+
+The Valcour monitoring buoy is located in the Main Lake segment of Lake Champlain, near Valcour Island.
+```{r buoy_map, out.width = "100%"}
+# load mapping packages
+library(mapboxapi)
+library(leaflet)
+
+# define buoy location
+buoy_loc <- tibble(lng = -73.394119,
+                   lat = 44.602322,
+                   name = "Valcour buoy")
+
+# create the map
+buoy_loc %>%
+  leaflet() %>%
+  addProviderTiles("Esri.WorldImagery") %>%
+  setView(lng = buoy_loc$lng,
+          lat =  buoy_loc$lat,
+          zoom = 9) %>%
+  addMarkers(lng = ~lng,
+             lat = ~lat,
+             label = ~name)
+```
+
+## Latest weather conditions, recorded `r latest_timestamp`
+
+**Air temperature:** `r latest_airtemp_degC` degrees Celsius (`r round(celsius.to.fahrenheit(latest_airtemp_degC), 1)` degrees Fahrenheit)
+
+**Wind speed:** `r round(latest_wind_speed_mps, 1)` meters per second (`r round(convert_wind_speed(latest_wind_speed_mps, old_metric = "mps", new_metric = "mph"), 1)` miles per hour)
+
+**Wind direction:** `r latest_wind_dir_deg` degrees from North
+
+**Relative atmospheric pressure:** `r round(latest_baro_pressure_kPa, 1)` kilopascals (`r round(latest_baro_pressure_kPa*7.50062, 1)` millimeters of mercury; `r round(latest_baro_pressure_kPa*0.2953, 1)` inches of mercury)
+
+## Weather conditions from the latest 30 days: {.tabset}
+
+### In imperial units
+```{r valcour_weather_imperial, out.width = "100%"}
+valcour_weather_plot_imperial <- valcour %>%
+ select(-starts_with("temp")) %>% # select all non-temperature columns
+ select(c(timestamp,
+          air_temp_degF,
+          wind_speed_mph,
+          wind_direction_deg,
+          rel_atm_pressure_inHg)) %>% # select parameters with the correct units
+ pivot_longer(-timestamp,
+              names_to = "var",
+              values_to = "value") %>%
+  filter(!(timestamp == ymd_hms("2021-07-06 03:30:00"))) %>% # remove erroneous value
+  filter(!(timestamp == ymd_hms("2021-09-07 16:15:00"))) %>% # remove erroneous value
+  mutate(var = var %>%
+               recode(air_temp_degF = "Air temperature (degrees Fahrenheit)",
+                      wind_speed_mph = "Wind speed (miles per hour)",
+                      wind_direction_deg = "Wind direction (degrees from North)",
+                      rel_atm_pressure_inHg = "Relative atmospheric pressure (inch of mercury)")) %>%
+  ggplot() +
+  geom_line(aes(x = timestamp,
+                y = value,
+                color = var)) +
+  facet_wrap(var ~ .,
+             scales = "free_y",
+             ncol = 1,
+             strip.position = "top") +
+  scale_color_viridis(discrete = TRUE) +
+  theme(legend.position = "none",
+        text = element_text(face = "bold",
+                                  size = 14)) +
+  labs(x = "", y = "")
+
+ggplotly(valcour_weather_plot_imperial)
+```
+
+### In metric units
+```{r valcour_weather_metric, out.width = "100%"}
+valcour_weather_plot_metric <- valcour %>%
+ select(-starts_with("temp")) %>% # select all non-temperature columns
+ select(c(timestamp,
+          air_temp_degC,
+          wind_speed_mps,
+          wind_direction_deg,
+          rel_atm_pressure_kPa)) %>% # select parameters with the correct units
+ pivot_longer(-timestamp,
+              names_to = "var",
+              values_to = "value") %>%
+  filter(!(timestamp == ymd_hms("2021-07-06 03:30:00"))) %>% # remove erroneous value
+  filter(!(timestamp == ymd_hms("2021-09-07 16:15:00"))) %>% # remove erroneous value
+  mutate(var = var %>%
+               recode(air_temp_degC = "Air temperature (degrees Celsius)",
+                      wind_speed_mps = "Wind speed (meters per second)",
+                      wind_direction_deg = "Wind direction (degrees from North)",
+                      rel_atm_pressure_kPa = "Relative atmospheric pressure (kilopascals)")) %>%
+  ggplot() +
+  geom_line(aes(x = timestamp,
+                y = value,
+                color = var)) +
+  facet_wrap(var ~ .,
+             scales = "free_y",
+             ncol = 1,
+             strip.position = "top") +
+  scale_color_viridis(discrete = TRUE) +
+  theme(legend.position = "none",
+        text = element_text(face = "bold",
+                                  size = 14)) +
+  labs(x = "", y = "")
+
+ggplotly(valcour_weather_plot_metric)
+```
+
+
+``` {r valcour_current_water_temp_imperial, out.width = "100%", eval = FALSE}
+# Turned off for now while the buoy is out of the water. When buoy is back, paste the following text above this chunk:
+## Latest water temperature profile, recorded `r latest_timestamp` {.tabset}
+
+### In imperial units
+
+latest_valcour_watertemp_plot_imperial <- valcour_watertemp %>%
+  filter(timestamp == latest_timestamp) %>%
+  ggplot() +
+  geom_line(aes(x = degF,
+                y = depth_ft),
+            size = 1.5) +
+  scale_y_reverse() +
+  labs(x = "Temperature (deg F)",
+       y = "Depth below water surface (ft)") +
+  theme(text = element_text(face = "bold",
+                            size = 14))
+
+ggplotly(latest_valcour_watertemp_plot_imperial)
+```
+
+
+``` {r valcour_current_water_temp_metric, out.width = "100%"}
+# Turned off for now while the buoy is out of the water. When buoy is back, paste the following text above this chunk:
+
+### In metric units
+
+latest_valcour_watertemp_plot_metric <- valcour_watertemp %>%
+  filter(timestamp == latest_timestamp) %>%
+  ggplot() +
+  geom_line(aes(x = degC,
+                y = depth_m),
+            size = 1.5) +
+  scale_y_reverse() +
+  labs(x = "Temperature (deg C)",
+       y = "Depth below water surface (m)") +
+  theme(text = element_text(face = "bold",
+                            size = 14))
+
+ggplotly(latest_valcour_watertemp_plot_metric)
+```
+
+
+```{r past_week, eval = FALSE, out.width = "100%"}
+# Turned off for now. 
+# enter number of days to look back:
+day_window <- 3
+
+timestamp_labeller <- function(x){
+  as.POSIXct(x, origin = '1970-01-01')
+}
+
+window_valcour_watertemp_plot <- valcour_watertemp %>%
+  filter(timestamp > (latest_timestamp - duration(day_window, units = "days"))) %>%
+  ggplot() +
+  geom_line(aes(x = degC,
+                y = depth_m,
+                color = timestamp,
+                group = timestamp),
+            alpha = 0.4,
+            size = 1) +
+  scale_y_reverse() +
+  scale_color_viridis(option = "magma",
+                      direction = -1,
+                      labels = timestamp_labeller) +
+  labs(x = "Temperature (deg C)",
+       y = "Depth below water surface (m)")
+
+ggplotly(window_valcour_watertemp_plot)
+```
+
+## Water temperature data from the latest 30 days: {.tabset}
+### In imperial units
+```{r valcour_watertemp_imperial, out.width = "100%"}
+valcour_watertemp_plot_imperial <- valcour_watertemp %>%
+  ggplot() +
+  geom_tile(aes(x = timestamp,
+                y = depth_ft,
+                fill = degF)) +
+  scale_fill_viridis("Temperature\n(deg F)",
+                     option = "plasma") +
+  scale_y_reverse() +
+  labs(x = "",
+       y = "Depth below water surface (ft)") +
+  theme(text = element_text(face = "bold",
+                            size = 14))
+
+ggplotly(valcour_watertemp_plot_imperial)
+```
+### In metric units
+```{r valcour_watertemp_metric, out.width = "100%"}
+valcour_watertemp_plot_metric <- valcour_watertemp %>%
+  ggplot() +
+  geom_tile(aes(x = timestamp,
+                y = depth_m,
+                fill = degC)) +
+  scale_fill_viridis("Temperature\n(deg C)",
+                     option = "plasma") +
+  scale_y_reverse() +
+  labs(x = "",
+       y = "Depth below water surface (m)") +
+  theme(text = element_text(face = "bold",
+                            size = 14))
+
+ggplotly(valcour_watertemp_plot_metric)
+```
+
 
 # More information
 Lake Champlain monitoring buoys are supported by the [Lake Champlain Basin Program](http://lcbp.org), in partnership with New York and Vermont Departments of Environmental Conservation and SUNY Plattsburgh.
 
 Two additional buoys will be deployed in Lake Champlain and added to this website in 2022.
 
-This website was developed by Matthew Vaughan, Technical Coordinator at the Lake Champlain Basin Program. [Please contact Matthew](mailto:mvaughan@lcbp.org) for more information. 
+This website was developed by Matthew Vaughan, Chief Scientist at the Lake Champlain Basin Program. [Please contact Matthew](mailto:mvaughan@lcbp.org) for more information. 
 
 ![](./data/LCBP_NEIWPCC.png)
